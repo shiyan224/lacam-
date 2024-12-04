@@ -1,5 +1,6 @@
 /*
  * instance definition
+ * 配置 starts and goals
  */
 #pragma once
 #include <random>

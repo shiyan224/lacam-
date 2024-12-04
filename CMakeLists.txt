@@ -5,7 +5,8 @@ add_subdirectory(./lacam2)
 add_subdirectory(./third_party/argparse)
 add_subdirectory(./third_party/googletest)
 
-add_executable(main main.cpp)
+add_executable(main main.cpp
+        sy_test.cpp)
 target_compile_features(main PUBLIC cxx_std_17)
 target_link_libraries(main lacam2 argparse)
 

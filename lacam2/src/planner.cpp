@@ -13,7 +13,7 @@ LNode::LNode(LNode* parent, uint i, Vertex* v)
 
 uint HNode::HNODE_CNT = 0;
 
-// for high-level
+// for high-level, 构造函数，生成节点时从父亲继承、更新每个agent的优先级
 HNode::HNode(const Config& _C, DistTable& D, HNode* _parent, const uint _g,
              const uint _h)
     : C(_C),
@@ -49,7 +49,7 @@ HNode::HNode(const Config& _C, DistTable& D, HNode* _parent, const uint _g,
     }
   }
 
-  // set order
+  // set order，按照priority从高到底决定agent的优先级
   std::iota(order.begin(), order.end(), 0);
   std::sort(order.begin(), order.end(),
             [&](uint i, uint j) { return priorities[i] > priorities[j]; });
@@ -119,12 +119,12 @@ Solution Planner::solve(std::string& additional_info)
     }
 
     // check lower bounds
-    if (H_goal != nullptr && H->f >= H_goal->f) {
+    if (H_goal != nullptr && H->f >= H_goal->f) { // 从当前节点的后继节点中不可能得到更好的结果，直接pop，剪枝
       OPEN.pop();
       continue;
     }
 
-    // check goal condition
+    // check goal condition 所有agent到达终点
     if (H_goal == nullptr && is_same_config(H->C, ins->goals)) {
       H_goal = H;
       solver_info(1, "found solution, cost: ", H->g);
@@ -132,7 +132,7 @@ Solution Planner::solve(std::string& additional_info)
       continue;
     }
 
-    // create successors at the low-level search
+    // create successors at the low-level search, BFS
     auto L = H->search_tree.front();
     H->search_tree.pop();
     expand_lowlevel_tree(H, L);
@@ -275,7 +275,7 @@ bool Planner::get_new_config(HNode* H, LNode* L)
   for (auto a : A) {
     // clear previous cache
     if (a->v_now != nullptr && occupied_now[a->v_now->id] == a) {
-      occupied_now[a->v_now->id] = nullptr;
+      occupied_now[a->v_now->id] = nullptr;  // ？？？
     }
     if (a->v_next != nullptr) {
       occupied_next[a->v_next->id] = nullptr;
@@ -313,7 +313,7 @@ bool Planner::get_new_config(HNode* H, LNode* L)
   return true;
 }
 
-bool Planner::funcPIBT(Agent* ai)
+bool Planner::funcPIBT(Agent* ai) // PIBT*
 {
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
