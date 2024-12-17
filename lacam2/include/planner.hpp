@@ -24,8 +24,9 @@ using Agents = std::vector<Agent*>;
 
 // low-level node
 struct LNode {
-  std::vector<uint> who;
-  Vertices where;
+  uint who;
+  Vertex* where;
+  LNode* parent;
   const uint depth;
   LNode(LNode* parent = nullptr, uint i = 0,
         Vertex* v = nullptr);  // who and where
@@ -92,6 +93,7 @@ struct Planner {
   uint get_edge_cost(const Config& C1, const Config& C2);
   uint get_edge_cost(HNode* H_from, HNode* H_to);
   uint get_h_value(const Config& C);
+  //float h(uint i, Vertex* v, HNode* H);
   bool get_new_config(HNode* H, LNode* L);
   bool funcPIBT(Agent* ai);
 

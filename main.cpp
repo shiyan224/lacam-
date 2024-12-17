@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
       .default_value(std::string("0"));
   program.add_argument("-t", "--time_limit_sec")
       .help("time limit sec")
-      .default_value(std::string("3"));
+      .default_value(std::string("600"));
   program.add_argument("-o", "--output")
       .help("output file")
       .default_value(std::string("./build/result.txt"));
@@ -75,6 +75,7 @@ int main(int argc, char* argv[])
 
   // check feasibility
   if (!is_feasible_solution(ins, solution, verbose)) {
+    std::cout << "invalid!" << std::endl;
     info(0, verbose, "invalid solution");
   }
 

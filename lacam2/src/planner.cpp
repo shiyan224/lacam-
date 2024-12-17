@@ -1,14 +1,14 @@
 #include "../include/planner.hpp"
 
-LNode::LNode(LNode* parent, uint i, Vertex* v)
-    : who(), where(), depth(parent == nullptr ? 0 : parent->depth + 1)
+LNode::LNode(LNode* _parent, uint i, Vertex* v)
+    : who(i), where(v), parent(_parent), depth(parent == nullptr ? 0 : parent->depth + 1)
 {
-  if (parent != nullptr) {
-    who = parent->who;
-    who.push_back(i);
-    where = parent->where;
-    where.push_back(v);
-  }
+//  if (parent != nullptr) { // 内存有优化空间
+//    who = parent->who;
+//    who.push_back(i);
+//    where = parent->where;
+//    where.push_back(v);
+//  }
 }
 
 uint HNode::HNODE_CNT = 0;
@@ -128,7 +128,7 @@ Solution Planner::solve(std::string& additional_info)
     if (H_goal == nullptr && is_same_config(H->C, ins->goals)) {
       H_goal = H;
       solver_info(1, "found solution, cost: ", H->g);
-      if (objective == OBJ_NONE) break;
+      //if (objective == OBJ_NONE) break;
       continue;
     }
 
@@ -139,7 +139,7 @@ Solution Planner::solve(std::string& additional_info)
 
     // create successors at the high-level search
     const auto res = get_new_config(H, L);
-    delete L;  // free
+    //delete L;  // free
     if (!res) continue;
 
     // create new configuration
@@ -147,9 +147,9 @@ Solution Planner::solve(std::string& additional_info)
 
     // check explored list
     const auto iter = EXPLORED.find(C_new);
-    if (iter != EXPLORED.end()) {
+    if (iter != EXPLORED.end()) { // C_new出现过，更新
       // case found
-      rewrite(H, iter->second, H_goal, OPEN);
+      rewrite(H, iter->second, H_goal,OPEN); // dijkstra
       // re-insert or random-restart
       auto H_insert = (MT != nullptr && get_random_float(MT) >= RESTART_RATE)
                           ? iter->second
@@ -219,7 +219,7 @@ void Planner::rewrite(HNode* H_from, HNode* H_to, HNode* H_goal,
         n_to->f = n_to->g + n_to->h;
         n_to->parent = n_from;
         Q.push(n_to);
-        if (H_goal != nullptr && n_to->f < H_goal->f) OPEN.push(n_to);
+        if (H_goal != nullptr && n_to->f < H_goal->f) OPEN.push(n_to); // 这条路原先可能走不通，现在能走通了
       }
     }
   }
@@ -227,6 +227,14 @@ void Planner::rewrite(HNode* H_from, HNode* H_to, HNode* H_goal,
 
 uint Planner::get_edge_cost(const Config& C1, const Config& C2)
 {
+  if (objective == OBJ_NONE) {
+    uint cost = 0;
+    for (uint i = 0; i < N; ++i) {
+      if (C1[i] != C2[i])
+        cost += 1;
+    }
+    return cost;
+  }
   if (objective == OBJ_SUM_OF_LOSS) {
     uint cost = 0;
     for (uint i = 0; i < N; ++i) {
@@ -251,8 +259,8 @@ uint Planner::get_h_value(const Config& C)
   uint cost = 0;
   if (objective == OBJ_MAKESPAN) {
     for (auto i = 0; i < N; ++i) cost = std::max(cost, D.get(i, C[i]));
-  } else if (objective == OBJ_SUM_OF_LOSS) {
-    for (auto i = 0; i < N; ++i) cost += D.get(i, C[i]);
+  } else {  //if (objective == OBJ_SUM_OF_LOSS)
+      for (auto i = 0; i < N; ++i) cost += D.get(i, C[i]);
   }
   return cost;
 }
@@ -288,9 +296,10 @@ bool Planner::get_new_config(HNode* H, LNode* L)
   }
 
   // add constraints
+  LNode* tmp = L;
   for (uint k = 0; k < L->depth; ++k) {
-    const auto i = L->who[k];        // agent
-    const auto l = L->where[k]->id;  // loc
+    const auto i = tmp->who;        // agent
+    const auto l = tmp->where->id;  // loc
 
     // check vertex collision
     if (occupied_next[l] != nullptr) return false;
@@ -301,8 +310,9 @@ bool Planner::get_new_config(HNode* H, LNode* L)
       return false;
 
     // set occupied_next
-    A[i]->v_next = L->where[k];
+    A[i]->v_next = tmp->where;
     occupied_next[l] = A[i];
+    tmp = tmp -> parent;
   }
 
   // perform PIBT
@@ -312,6 +322,20 @@ bool Planner::get_new_config(HNode* H, LNode* L)
   }
   return true;
 }
+
+//float Planner::h(uint i, Vertex* v, HNode* H)
+//{
+//  float ret = 0;
+//  auto aj = occupied_now[v->id];
+//  if (aj != nullptr) {
+//    if (aj == A[i])
+//      return 0;
+//
+//    if (D.get(aj->id, aj->v_now) == 0)
+//      ret += 0.2;
+//  }
+//  return ret;
+//}
 
 bool Planner::funcPIBT(Agent* ai) // PIBT*
 {
@@ -324,14 +348,17 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
+//    auto aj = occupied_now[u->id];
+//    if (aj != nullptr && D.get(aj->id, u) == 0 && aj != ai)
+//        tie_breakers[u->id] += 0.5;
   }
   C_next[i][K] = ai->v_now;
-
+//  tie_breakers[ai->v_now->id] = get_random_float(MT, 0, 0.49);
   // sort
   std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
             [&](Vertex* const v, Vertex* const u) {
-              return D.get(i, v) + tie_breakers[v->id] <
-                     D.get(i, u) + tie_breakers[u->id];
+              return (float)D.get(i, v)  + tie_breakers[v->id] <
+                     (float)D.get(i, u)  +tie_breakers[u->id];
             });
 
   Agent* swap_agent = swap_possible_and_required(ai);
@@ -340,18 +367,18 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
 
   // main operation
   for (auto k = 0; k < K + 1; ++k) {
-    auto u = C_next[i][k];
+    auto u = C_next[i][k]; // 备用节点
 
     // avoid vertex conflicts
-    if (occupied_next[u->id] != nullptr) continue;
+    if (occupied_next[u->id] != nullptr) continue; // 节点u下一时刻将被占据
 
-    auto& ak = occupied_now[u->id];
+    auto& ak = occupied_now[u->id]; // 选取当前占据u节点的agent
 
     // avoid swap conflicts
-    if (ak != nullptr && ak->v_next == ai->v_now) continue;
+    if (ak != nullptr && ak->v_next == ai->v_now) continue; // 如果该agent下一时刻要来到当前位置，swap conflict
 
     // reserve next location
-    occupied_next[u->id] = ai;
+    occupied_next[u->id] = ai; // 不会发生任何冲突
     ai->v_next = u;
 
     // priority inheritance
@@ -369,7 +396,7 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
   }
 
   // failed to secure node
-  occupied_next[ai->v_now->id] = ai;
+  occupied_next[ai->v_now->id] = ai; // why? 停留原地的选项不是也已经进行过尝试了吗？
   ai->v_next = ai->v_now;
   return false;
 }
@@ -388,7 +415,7 @@ Agent* Planner::swap_possible_and_required(Agent* ai)
     return aj;
   }
 
-  // for clear operation, c.f., case-c
+  // for clear operation, c.f., case-c ？？？？？？？？？？？？？？？？？？？
   for (auto u : ai->v_now->neighbor) {
     auto ak = occupied_now[u->id];
     if (ak == nullptr || C_next[i][0] == ak->v_now) continue;
@@ -408,7 +435,7 @@ bool Planner::is_swap_required(const uint pusher, const uint puller,
   auto v_pusher = v_pusher_origin;
   auto v_puller = v_puller_origin;
   Vertex* tmp = nullptr;
-  while (D.get(pusher, v_puller) < D.get(pusher, v_pusher)) {
+  while (D.get(pusher, v_puller) < D.get(pusher, v_pusher)) { // puller在pusher的路径上
     auto n = v_puller->neighbor.size();
     // remove agents who need not to move
     for (auto u : v_puller->neighbor) {
@@ -425,11 +452,11 @@ bool Planner::is_swap_required(const uint pusher, const uint puller,
     v_pusher = v_puller;
     v_puller = tmp;
   }
-
+  //推到不能推（puller无路可走） or 无需再推（pusher到达goal）
   // judge based on distance
-  return (D.get(puller, v_pusher) < D.get(puller, v_puller)) &&
+  return (D.get(puller, v_pusher) < D.get(puller, v_puller)) && // pusher在puller的路径上
          (D.get(pusher, v_pusher) == 0 ||
-          D.get(pusher, v_puller) < D.get(pusher, v_pusher));
+          D.get(pusher, v_puller) < D.get(pusher, v_pusher)); // pusher到达goal 或 puller仍在pusher的路径上
 }
 
 // simulate whether the swap is possible
