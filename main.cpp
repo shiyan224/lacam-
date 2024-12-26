@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
       .default_value(std::string("0"));
   program.add_argument("-t", "--time_limit_sec")
       .help("time limit sec")
-      .default_value(std::string("600"));
+      .default_value(std::string("60"));
   program.add_argument("-o", "--output")
       .help("output file")
       .default_value(std::string("./build/result.txt"));
@@ -74,11 +74,13 @@ int main(int argc, char* argv[])
   if (solution.empty()) info(1, verbose, "failed to solve");
 
   // check feasibility
-  if (!is_feasible_solution(ins, solution, verbose)) {
+  uint offgoals = 0, badmoves = 0;
+  if (!is_feasible_solution(offgoals, badmoves, ins, solution, verbose)) {
     std::cout << "invalid!" << std::endl;
     info(0, verbose, "invalid solution");
   }
-
+  std::cout << "offgoals:\t" << offgoals << std::endl;
+  std::cout << "badmoves:\t" << badmoves << std::endl;
   // post processing
   print_stats(verbose, ins, solution, comp_time_ms);
   make_log(ins, solution, output_name, comp_time_ms, map_name, seed,

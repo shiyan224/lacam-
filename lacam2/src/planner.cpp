@@ -151,6 +151,7 @@ Solution Planner::solve(std::string& additional_info)
       // case found
       rewrite(H, iter->second, H_goal,OPEN); // dijkstra
       // re-insert or random-restart
+
       auto H_insert = (MT != nullptr && get_random_float(MT) >= RESTART_RATE)
                           ? iter->second
                           : H_init;
@@ -215,11 +216,13 @@ void Planner::rewrite(HNode* H_from, HNode* H_to, HNode* H_goal,
       if (g_val < n_to->g) {
         if (n_to == H_goal)
           solver_info(1, "cost update: ", n_to->g, " -> ", g_val);
+        uint _n_to = n_to->f;
         n_to->g = g_val;
         n_to->f = n_to->g + n_to->h;
         n_to->parent = n_from;
         Q.push(n_to);
-        if (H_goal != nullptr && n_to->f < H_goal->f) OPEN.push(n_to); // 这条路原先可能走不通，现在能走通了
+        if (H_goal != nullptr && n_to->f < H_goal->f)
+          OPEN.push(n_to); // 这条路原先可能走不通，现在能走通了 && _n_to >= H_goal->f
       }
     }
   }
@@ -283,7 +286,7 @@ bool Planner::get_new_config(HNode* H, LNode* L)
   for (auto a : A) {
     // clear previous cache
     if (a->v_now != nullptr && occupied_now[a->v_now->id] == a) {
-      occupied_now[a->v_now->id] = nullptr;  // ？？？
+      occupied_now[a->v_now->id] = nullptr;  // 高效初始化
     }
     if (a->v_next != nullptr) {
       occupied_next[a->v_next->id] = nullptr;
@@ -415,10 +418,10 @@ Agent* Planner::swap_possible_and_required(Agent* ai)
     return aj;
   }
 
-  // for clear operation, c.f., case-c ？？？？？？？？？？？？？？？？？？？
-  for (auto u : ai->v_now->neighbor) {
-    auto ak = occupied_now[u->id];
-    if (ak == nullptr || C_next[i][0] == ak->v_now) continue;
+  // for clear operation, c.f., case-c 防止重复吧
+  for (auto u : ai->v_now->neighbor) { // 遍历ai的邻居
+    auto ak = occupied_now[u->id]; //
+    if (ak == nullptr || C_next[i][0] == ak->v_now) continue; // 如果该位置上没有agent，或者ak在ai的最短路径上
     if (is_swap_required(ak->id, ai->id, ai->v_now, C_next[i][0]) &&
         is_swap_possible(C_next[i][0], ai->v_now)) {
       return ak;

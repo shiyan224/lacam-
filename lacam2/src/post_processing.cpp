@@ -2,10 +2,11 @@
 
 #include "../include/dist_table.hpp"
 
-bool is_feasible_solution(const Instance& ins, const Solution& solution,
+bool is_feasible_solution(uint& offgoals, uint& badmoves, const Instance& ins, const Solution& solution,
                           const int verbose)
 {
   if (solution.empty()) return true;
+  auto dist_table = DistTable(ins);
 
   // check start locations
   if (!is_same_config(solution.front(), ins.starts)) {
@@ -23,6 +24,12 @@ bool is_feasible_solution(const Instance& ins, const Solution& solution,
     for (size_t i = 0; i < ins.N; ++i) {
       auto v_i_from = solution[t - 1][i];
       auto v_i_to = solution[t][i];
+      // statistics
+//      if (v_i_from == ins.goals[i] && v_i_to != ins.goals[i])
+//        ++offgoals;
+//      if (dist_table.get(i, v_i_to) > dist_table.get(i, v_i_from))
+//        ++badmoves;
+
       // check connectivity
       if (v_i_from != v_i_to &&
           std::find(v_i_to->neighbor.begin(), v_i_to->neighbor.end(),

@@ -6,7 +6,7 @@
 #include "instance.hpp"
 #include "utils.hpp"
 
-bool is_feasible_solution(const Instance& ins, const Solution& solution,
+bool is_feasible_solution(uint& offgoals, uint& badmoves, const Instance& ins, const Solution& solution,
                           const int verbose = 0);
 int get_makespan(const Solution& solution);
 int get_path_cost(const Solution& solution, uint i);  // single-agent path cost
