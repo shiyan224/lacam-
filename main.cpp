@@ -79,8 +79,8 @@ int main(int argc, char* argv[])
     std::cout << "invalid!" << std::endl;
     info(0, verbose, "invalid solution");
   }
-  std::cout << "offgoals:\t" << offgoals << std::endl;
-  std::cout << "badmoves:\t" << badmoves << std::endl;
+//  std::cout << "offgoals:\t" << offgoals << std::endl;
+//  std::cout << "badmoves:\t" << badmoves << std::endl;
   // post processing
   print_stats(verbose, ins, solution, comp_time_ms);
   make_log(ins, solution, output_name, comp_time_ms, map_name, seed,
