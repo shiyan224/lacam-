@@ -47,12 +47,13 @@ struct HNode {
   uint f;        // g + h (might be updated)
 
   // for low-level search
-  std::vector<float> priorities;
+  std::vector<uint> in_corridor;
+  std::vector<float> d_priorities, priorities;
   std::vector<uint> order;
   std::queue<LNode*> search_tree;
 
   HNode(const Config& _C, DistTable& D, HNode* _parent, const uint _g,
-        const uint _h);
+        const uint _h, std::vector<bool> &into_crd);
   ~HNode();
 };
 using HNodes = std::vector<HNode*>;
@@ -74,6 +75,7 @@ struct Planner {
   uint loop_cnt;      // auxiliary
 
   // used in PIBT
+  std::vector<bool> into_crd; // check whether the next location is in a corridor
   std::vector<std::array<Vertex*, 5> > C_next;  // next locations, used in PIBT
   std::vector<float> tie_breakers;              // random values, used in PIBT
   Agents A;

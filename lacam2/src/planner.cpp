@@ -15,13 +15,15 @@ uint HNode::HNODE_CNT = 0;
 
 // for high-level, 构造函数，生成节点时从父亲继承、更新每个agent的优先级
 HNode::HNode(const Config& _C, DistTable& D, HNode* _parent, const uint _g,
-             const uint _h)
+             const uint _h, std::vector<bool>& into_crd)
     : C(_C),
       parent(_parent),
       neighbor(),
       g(_g),
       h(_h),
       f(g + h),
+      in_corridor(C.size()),
+      d_priorities(C.size()),
       priorities(C.size()),
       order(C.size(), 0),
       search_tree(std::queue<LNode*>())
@@ -37,15 +39,20 @@ HNode::HNode(const Config& _C, DistTable& D, HNode* _parent, const uint _g,
   // set priorities
   if (parent == nullptr) {
     // initialize
-    for (uint i = 0; i < N; ++i) priorities[i] = (float)D.get(i, C[i]) / N;
+    for (uint i = 0; i < N; ++i) {
+      d_priorities[i] = priorities[i] = (float)D.get(i, C[i]) / N;
+      in_corridor[i] = 0;
+    }
   } else {
     // dynamic priorities, akin to PIBT
     for (size_t i = 0; i < N; ++i) {
       if (D.get(i, C[i]) != 0) {
-        priorities[i] = parent->priorities[i] + 1;
+        in_corridor[i] = into_crd[i] ? (parent->in_corridor[i] + 1) : 0;
+        d_priorities[i] = parent->d_priorities[i] + 1;
       } else {
-        priorities[i] = parent->priorities[i] - (int)parent->priorities[i];
+        d_priorities[i] = parent->d_priorities[i] - (int)parent->d_priorities[i];
       }
+      priorities[i] = d_priorities[i] + in_corridor[i];
     }
   }
 
@@ -79,6 +86,7 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       C_next(N),
       tie_breakers(V_size, 0),
       A(N, nullptr),
+      into_crd(V_size),
       occupied_now(V_size, nullptr),
       occupied_next(V_size, nullptr)
 {
@@ -97,7 +105,7 @@ Solution Planner::solve(std::string& additional_info)
   auto OPEN = std::stack<HNode*>();
   auto EXPLORED = std::unordered_map<Config, HNode*, ConfigHasher>();
   // insert initial node, 'H': high-level node
-  auto H_init = new HNode(ins->starts, D, nullptr, 0, get_h_value(ins->starts));
+  auto H_init = new HNode(ins->starts, D, nullptr, 0, get_h_value(ins->starts), into_crd);
   OPEN.push(H_init);
   EXPLORED[H_init->C] = H_init;
 
@@ -159,7 +167,7 @@ Solution Planner::solve(std::string& additional_info)
     } else {
       // insert new search node
       const auto H_new = new HNode(
-          C_new, D, H, H->g + get_edge_cost(H->C, C_new), get_h_value(C_new));
+          C_new, D, H, H->g + get_edge_cost(H->C, C_new), get_h_value(C_new), into_crd);
       EXPLORED[H_new->C] = H_new;
       if (H_goal == nullptr || H_new->f < H_goal->f) OPEN.push(H_new);
     }
@@ -284,6 +292,7 @@ bool Planner::get_new_config(HNode* H, LNode* L)
 {
   // setup cache
   for (auto a : A) {
+      into_crd[a->id] = false;
     // clear previous cache
     if (a->v_now != nullptr && occupied_now[a->v_now->id] == a) {
       occupied_now[a->v_now->id] = nullptr;  // 高效初始化
@@ -395,6 +404,9 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
       swap_agent->v_next = ai->v_now;
       occupied_next[swap_agent->v_next->id] = swap_agent;
     }
+    // check whether stepping into a corridor
+    if (k == 0 && swap_agent == nullptr && u->neighbor.size() == 2)
+      into_crd[ai->id] = true;
     return true;
   }
 
