@@ -25,10 +25,10 @@ bool is_feasible_solution(uint& offgoals, uint& badmoves, const Instance& ins, c
       auto v_i_from = solution[t - 1][i];
       auto v_i_to = solution[t][i];
       // statistics
-//      if (v_i_from == ins.goals[i] && v_i_to != ins.goals[i])
-//        ++offgoals;
-//      if (dist_table.get(i, v_i_to) > dist_table.get(i, v_i_from))
-//        ++badmoves;
+      if (v_i_from == ins.goals[i] && v_i_to != ins.goals[i])
+        ++offgoals;
+      if (dist_table.get(i, v_i_to) > dist_table.get(i, v_i_from))
+        ++badmoves;
 
       // check connectivity
       if (v_i_from != v_i_to &&
