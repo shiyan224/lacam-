@@ -416,7 +416,7 @@ bool Planner::funcPIBT(Agent* ai, int &compromise_num, bool is_root) // PIBT*
     if (ak != nullptr && ak != ai && ak->v_next == nullptr && !funcPIBT(ak, compromise_num, false))
       continue;
     if (compromise)
-      compromise_num++;
+      compromise_num += D.get(i,u)-D.get(i,C_next[i][0]);
     // success to plan next one step
     // pull swap_agent when applicable
     if (FLG_SWAP) {
