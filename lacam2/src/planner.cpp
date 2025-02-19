@@ -365,9 +365,12 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
                      (float)D.get(i, u)  +tie_breakers[u->id];
             });
 
-  Agent* swap_agent = swap_possible_and_required(ai);
-  if (swap_agent != nullptr)
-    std::reverse(C_next[i].begin(), C_next[i].begin() + K + 1);
+  Agent* swap_agent = nullptr;
+  if (FLG_SWAP) {
+    swap_agent = swap_possible_and_required(ai);
+    if (swap_agent != nullptr)
+      std::reverse(C_next[i].begin(), C_next[i].begin() + K + 1);
+  }
 
   // main operation
   for (auto k = 0; k < K + 1; ++k) {
@@ -391,10 +394,12 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
 
     // success to plan next one step
     // pull swap_agent when applicable
-    if (k == 0 && swap_agent != nullptr && swap_agent->v_next == nullptr &&
-        occupied_next[ai->v_now->id] == nullptr) {
-      swap_agent->v_next = ai->v_now;
-      occupied_next[swap_agent->v_next->id] = swap_agent;
+    if (FLG_SWAP) {
+      if (k == 0 && swap_agent != nullptr && swap_agent->v_next == nullptr &&
+          occupied_next[ai->v_now->id] == nullptr) {
+        swap_agent->v_next = ai->v_now;
+        occupied_next[swap_agent->v_next->id] = swap_agent;
+      }
     }
     return true;
   }

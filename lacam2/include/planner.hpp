@@ -62,6 +62,7 @@ struct Planner {
   const Deadline* deadline;
   std::mt19937* MT;
   const int verbose;
+  const int FLG_SWAP = 0;
 
   // hyper parameters
   const Objective objective;
