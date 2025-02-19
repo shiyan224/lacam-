@@ -136,10 +136,12 @@ Solution Planner::solve(std::string& additional_info)
     // create successors at the low-level search, BFS
     auto L = H->search_tree.front();
     H->search_tree.pop();
-    expand_lowlevel_tree(H, L);
+//    expand_lowlevel_tree(H, L);
+    expand_lowlevel_tree_with_compromise_number(H, L);
 
     // create successors at the high-level search
-    const auto res = get_new_config(H, L);
+    int compromise_num = 0;
+    const auto res = get_new_config(H, L, compromise_num);
     //delete L;  // free
     if (!res) continue;
 
@@ -281,7 +283,30 @@ void Planner::expand_lowlevel_tree(HNode* H, LNode* L)
   for (auto v : C) H->search_tree.push(new LNode(L, i, v));
 }
 
-bool Planner::get_new_config(HNode* H, LNode* L)
+void Planner::expand_lowlevel_tree_with_compromise_number(HNode* H, LNode* L)
+{
+  if (L->depth >= N) return;
+  const auto i = H->order[L->depth];
+  auto CC = H->C[i]->neighbor;
+  CC.push_back(H->C[i]);
+  std::unordered_map<Vertex*, int> cpm_map;
+  std::vector<Vertex*> C;
+  for (auto v : CC) {
+      int compromise_number = 0;
+      auto res = get_new_config(H, new LNode(L, i, v), compromise_number);
+      cpm_map[v] = compromise_number;
+      if (res)
+        C.push_back(v);
+  }
+  // sort
+  std::sort(C.begin(), C.end(), [&cpm_map](Vertex* a, Vertex* b){
+    return cpm_map[a]<cpm_map[b];
+  });
+  // insert
+  for (auto v : C) H->search_tree.push(new LNode(L, i, v));
+}
+
+bool Planner::get_new_config(HNode* H, LNode* L, int &compromise_num)
 {
   // setup cache
   for (auto a : A) {
@@ -322,7 +347,7 @@ bool Planner::get_new_config(HNode* H, LNode* L)
   // perform PIBT
   for (auto k : H->order) {
     auto a = A[k];
-    if (a->v_next == nullptr && !funcPIBT(a)) return false;  // planning failure
+    if (a->v_next == nullptr && !funcPIBT(a, compromise_num, true)) return false;  // planning failure
   }
   return true;
 }
@@ -341,7 +366,7 @@ bool Planner::get_new_config(HNode* H, LNode* L)
 //  return ret;
 //}
 
-bool Planner::funcPIBT(Agent* ai) // PIBT*
+bool Planner::funcPIBT(Agent* ai, int &compromise_num, bool is_root) // PIBT*
 {
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
@@ -352,12 +377,8 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
-//    auto aj = occupied_now[u->id];
-//    if (aj != nullptr && D.get(aj->id, u) == 0 && aj != ai)
-//        tie_breakers[u->id] += 0.5;
   }
   C_next[i][K] = ai->v_now;
-//  tie_breakers[ai->v_now->id] = get_random_float(MT, 0, 0.49);
   // sort
   std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
             [&](Vertex* const v, Vertex* const u) {
@@ -365,14 +386,20 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
                      (float)D.get(i, u)  +tie_breakers[u->id];
             });
 
-  Agent* swap_agent = swap_possible_and_required(ai);
-  if (swap_agent != nullptr)
-    std::reverse(C_next[i].begin(), C_next[i].begin() + K + 1);
+  Agent* swap_agent = nullptr;
+  if (FLG_SWAP) {
+    swap_agent = swap_possible_and_required(ai);
+    if (swap_agent != nullptr)
+      std::reverse(C_next[i].begin(), C_next[i].begin() + K + 1);
+  }
 
+
+  bool compromise = false;
   // main operation
   for (auto k = 0; k < K + 1; ++k) {
     auto u = C_next[i][k]; // 备用节点
-
+    if (!compromise && k && D.get(i, u) > D.get(i,C_next[i][k-1]))
+      compromise = true;
     // avoid vertex conflicts
     if (occupied_next[u->id] != nullptr) continue; // 节点u下一时刻将被占据
 
@@ -386,15 +413,18 @@ bool Planner::funcPIBT(Agent* ai) // PIBT*
     ai->v_next = u;
 
     // priority inheritance
-    if (ak != nullptr && ak != ai && ak->v_next == nullptr && !funcPIBT(ak))
+    if (ak != nullptr && ak != ai && ak->v_next == nullptr && !funcPIBT(ak, compromise_num, false))
       continue;
-
+    if (compromise)
+      compromise_num++;
     // success to plan next one step
     // pull swap_agent when applicable
-    if (k == 0 && swap_agent != nullptr && swap_agent->v_next == nullptr &&
-        occupied_next[ai->v_now->id] == nullptr) {
-      swap_agent->v_next = ai->v_now;
-      occupied_next[swap_agent->v_next->id] = swap_agent;
+    if (FLG_SWAP) {
+      if (k == 0 && swap_agent != nullptr && swap_agent->v_next == nullptr &&
+          occupied_next[ai->v_now->id] == nullptr) {
+        swap_agent->v_next = ai->v_now;
+        occupied_next[swap_agent->v_next->id] = swap_agent;
+      }
     }
     return true;
   }

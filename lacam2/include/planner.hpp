@@ -62,7 +62,7 @@ struct Planner {
   const Deadline* deadline;
   std::mt19937* MT;
   const int verbose;
-
+  const int FLG_SWAP = 0;
   // hyper parameters
   const Objective objective;
   const float RESTART_RATE;  // random restart
@@ -88,14 +88,15 @@ struct Planner {
   ~Planner();
   Solution solve(std::string& additional_info);
   void expand_lowlevel_tree(HNode* H, LNode* L);
+  void expand_lowlevel_tree_with_compromise_number(HNode* H, LNode* L);
   void rewrite(HNode* H_from, HNode* T, HNode* H_goal,
                std::stack<HNode*>& OPEN);
   uint get_edge_cost(const Config& C1, const Config& C2);
   uint get_edge_cost(HNode* H_from, HNode* H_to);
   uint get_h_value(const Config& C);
   //float h(uint i, Vertex* v, HNode* H);
-  bool get_new_config(HNode* H, LNode* L);
-  bool funcPIBT(Agent* ai);
+  bool get_new_config(HNode* H, LNode* L, int &compromise_num);
+  bool funcPIBT(Agent* ai, int &compromise_num, bool is_root);
 
   // swap operation
   Agent* swap_possible_and_required(Agent* ai);
